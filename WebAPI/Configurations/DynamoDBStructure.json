@@ -1,0 +1,66 @@
+{
+    "DynamoDBStructure" : {
+        "Group1" : {
+            "Task1": {
+                "Attributes": [
+                    "Airport",
+                    "Frequency"
+                ]
+            },
+            "Task2" : {
+                "Attributes": [
+                    "Carrier",
+                    "ArrivalPerformance"
+                ]
+            },
+            "Task3" : {
+                "Attributes" : [
+                    "WeekDay",
+                    "ArrivalPerformance"
+                ]
+            }
+        },
+        "Group2" : {
+            "Task1" : {
+                "Attributes" : [
+                    "Airport",
+                    "Carrier",
+                    "DeparturePerformance"
+                ]
+            },
+            "Task2" : {
+                "Attributes" : [
+                    "Airport",
+                    "Destination",
+                    "DeparturePerformance"
+                ]
+            },
+            "Task3" : {
+                "Attributes" :[
+                    "Condition",
+                    "DeparturePerformance"
+                ]
+            },
+            "Task4" : {
+                "Attributes" :  [
+                    "Condition",
+                    "ArrivalDelay"
+                ]
+            }
+        },
+        "Group3" : {
+            "Task1" : {
+                "Attributes":[
+                    "Airport",
+                    "Frequency"
+                ]
+            },
+            "Task2" : {
+                "Attributes":[
+                    "Condition",
+                    "ArrivalPerformance"
+                ]
+            }
+        }
+    }
+}

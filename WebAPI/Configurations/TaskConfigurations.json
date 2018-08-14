@@ -1,0 +1,854 @@
+{
+    "DataPreparation": {
+        "InstanceConfiguration": {
+            "ImageId": "ami-1853ac65",
+            "InstanceType": "t2.medium",
+            "InstanceProfileSpecificationName":"EC2_accessToS3",
+            "LaunchScript": "#!/bin/bash\ncd /home/ec2-user/\naws s3 cp s3://courseraprojectdata/EMRTasks/Scripts/DataPreparation/prepare.sh .\nchmod +x ./prepare.sh\n./prepare.sh\n",
+            "TagSpecifications": [
+                {
+                    "ResourceType": "Instance",
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "DATA_PREPARATION"
+                        }
+                    ]
+                }
+            ],
+            "BlockDeviceMappings": [
+                {
+                    "DeviceName": "/dev/sdb",
+                    "Ebs": {
+                        "DeleteOnTermination": true,
+                        "SnapshotId": "snap-e1608d88",
+                        "VolumeSize": 40
+                    }
+                }
+            ],
+            "KeyName": "CourseraProjectKey"
+        }
+    },
+    "TaskConfigurations": {
+        "Group1": {
+            "Task1": {
+                "ClusterName": "Group1Task1Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group1/Task1/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Count flights (in/out) per airport",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Count.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "OriginAirport",
+                                "DestinationAirport"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Order airports by popularity",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderInt.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "10",
+                                "false"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task2": {
+                "ClusterName": "Group1Task2Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group1/Task2/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Average arrival delay per carrier",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "ArrivalDelayMinutes",
+                                "true",
+                                "Carrier"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Order carriers by arrival performance",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderDouble.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "10",
+                                "true"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task3": {
+                "ClusterName": "Group1Task3Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group1/Task3/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Average arrival delay per weekday",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "ArrivalDelayMinutes",
+                                "true",
+                                "WeekDay"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Order weekdays by arrival performance",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderDouble.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "-1",
+                                "true"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            }
+        },
+        "Group2": {
+            "Task1": {
+                "ClusterName": "Group2Task1Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group2/Task1/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Airport:Carrier:DepartureDelay",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "DepartureDelayMinutes",
+                                "true",
+                                "OriginAirport",
+                                "true",
+                                "Carrier"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Airport:[Carrier:10]",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderDouble.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "10",
+                                "true",
+                                "true",
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task2": {
+                "ClusterName": "Group2Task2Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group2/Task2/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "OriginAirport:DestAirport:DepartureDelay",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "DepartureDelayMinutes",
+                                "true",
+                                "OriginAirport",
+                                "true",
+                                "DestinationAirport"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "OriginAirport:[DestAirport:10]",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderDouble.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "10",
+                                "true",
+                                "true",
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task3": {
+                "ClusterName": "Group2Task3Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group2/Task3/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "OriginAirport:DestAirport:Carrier:ArrivalDelay",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "ArrivalDelayMinutes",
+                                "true",
+                                "OriginAirport",
+                                "true",
+                                "DestinationAirport",
+                                "true",
+                                "Carrier"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "[OriginAirport:DestAirport]:[Carrier:10]",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderDouble.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "10",
+                                "true",
+                                "true",
+                                "2"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task4": {
+                "ClusterName": "Group2Task4Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group2/Task4/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "OriginAirport:DestAirport:DepartureDelay",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Average.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_final",
+                                "ArrivalDelayMinutes",
+                                "true",
+                                "OriginAirport",
+                                "true",
+                                "DestinationAirport"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            }
+        },
+        "Group3": {
+            "Task1": {
+                "ClusterName": "Group3Task1Cluster",
+                "ReleaseLabel": "emr-5.7.0",
+                "Applications": [
+                    { "Name": "Hadoop" },
+                    { "Name": "Hive" }
+                ],
+                "EC2KeyName" : "CourseraProjectKey",
+                "InstanceCount": 3,
+                "KeepJobAlive": true,
+                "MasterInstanceType": "m3.xlarge",
+                "SlaveInstanceType": "m3.xlarge",
+                "ServiceRole": "EMR_DefaultRole",
+                "JobFlowRole": "EMR_EC2_DefaultRole",
+                "BootstrapActions": [
+                    {
+                        "Name" : "Set script transfer script",
+                        "ScriptBootstrapAction" : {
+                            "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                            "Args": [
+                              "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                              "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group3/Task1/dynamo.sql"
+                            ]
+                        }
+                    }
+                ],
+                "StepConfigurations": [
+                    {
+                        "Name": "Create HDFS Folders",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                "/user/coursera/",
+                                "/user/coursera/data",
+                                "/user/coursera/data/tmp"
+                            ]
+                        }
+                    },
+                    {
+                        "Name": "Copy data from S3",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "command-runner.jar",
+                            "Args": [
+                                "s3-dist-cp",
+                                "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                "--dest=hdfs:///user/coursera/data/tmp/"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Count flights (in/out) per airport",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Count.jar",
+                            "Args": [
+                                "/user/coursera/data/filtered.csv",
+                                "/user/coursera/data/output_1",
+                                "OriginAirport",
+                                "DestinationAirport"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Order airports by popularity",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://courseraprojectdata/EMRTasks/JAR/OrderInt.jar",
+                            "Args": [
+                                "/user/coursera/data/output_1",
+                                "/user/coursera/data/output_final",
+                                "-1",
+                                "false"
+                            ]
+                        }
+                    },
+                    {
+                        "Name" : "Copy data to DynamoDB",
+                        "ActionOnFailure": "CONTINUE",
+                        "HadoopJarStep": {
+                            "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                            "Args": [
+                                "/home/hadoop/scripts/execSQL.sh"
+                            ]
+                        }
+                    }
+                ],
+                "LogUri" : "s3://courseraprojectdata/EMRLogs"
+            },
+            "Task2": {
+                "ClusterName": "Group3Task2Cluster",
+                    "ReleaseLabel": "emr-5.7.0",
+                    "Applications": [
+                        { "Name": "Hadoop" },
+                        { "Name": "Hive" }
+                    ],
+                    "EC2KeyName" : "CourseraProjectKey",
+                    "InstanceCount": 3,
+                    "KeepJobAlive": true,
+                    "MasterInstanceType": "m3.xlarge",
+                    "SlaveInstanceType": "m3.xlarge",
+                    "ServiceRole": "EMR_DefaultRole",
+                    "JobFlowRole": "EMR_EC2_DefaultRole",
+                    "BootstrapActions": [
+                        {
+                            "Name" : "Set script transfer script",
+                            "ScriptBootstrapAction" : {
+                                "Path": "s3://courseraprojectdata/EMRTasks/Scripts/General/transferScriptsToInstance.sh",
+                                "Args": [
+                                  "s3://courseraprojectdata/EMRTasks/Scripts/General/execSQL.sh",
+                                  "s3://courseraprojectdata/EMRTasks/Scripts/Groups/Group3/Task2/dynamo.sql"
+                                ]
+                            }
+                        }
+                    ],
+                    "StepConfigurations": [
+                        {
+                            "Name": "Create HDFS Folders",
+                            "ActionOnFailure": "CONTINUE",
+                            "HadoopJarStep": {
+                                "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                                "Args": [
+                                    "s3://courseraprojectdata/EMRTasks/Scripts/General/prepareHDFSFolders.sh",
+                                    "/user/coursera/",
+                                    "/user/coursera/data",
+                                    "/user/coursera/data/tmp"
+                                ]
+                            }
+                        },
+                        {
+                            "Name": "Copy data from S3",
+                            "ActionOnFailure": "CONTINUE",
+                            "HadoopJarStep": {
+                                "Jar": "command-runner.jar",
+                                "Args": [
+                                    "s3-dist-cp",
+                                    "--src=s3://courseraprojectdata/EMRTasks/Data/filtered.csv",
+                                    "--dest=hdfs:///user/coursera/data/tmp/"
+                                ]
+                            }
+                        },
+                        {
+                            "Name" : "Two part journey",
+                            "ActionOnFailure": "CONTINUE",
+                            "HadoopJarStep": {
+                                "Jar": "s3://courseraprojectdata/EMRTasks/JAR/Journey.jar",
+                                "Args": [
+                                    "/user/coursera/data/filtered.csv",
+                                    "/user/coursera/data/output_final",
+                                    "2008"
+                                ]
+                            }
+                        },
+                        {
+                            "Name" : "Copy data to DynamoDB",
+                            "ActionOnFailure": "CONTINUE",
+                            "HadoopJarStep": {
+                                "Jar": "s3://eu-central-1.elasticmapreduce/libs/script-runner/script-runner.jar",
+                                "Args": [
+                                    "/home/hadoop/scripts/execSQL.sh"
+                                ]
+                            }
+                        }
+                    ],
+                    "LogUri": "s3://courseraprojectdata/EMRLogs"
+            }
+        }
+    }
+}
